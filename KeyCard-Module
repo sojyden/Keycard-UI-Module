@@ -1,0 +1,154 @@
+-- The module script for this must be placed inside Replicated Storage inside a folder called ".modules"
+-- The server script must be inside of a Promixty Prompt
+
+
+--Module Script
+local module = {}
+
+local TweenService = game:GetService("TweenService")
+
+function module.keyCardActivation(player, access, status, mainFrame, prompt, door, secondPrompt)
+	game.ReplicatedStorage[".events"].acceptAudio:FireClient(player)
+
+	-- Disable prompts during animation
+	prompt.Enabled = false
+	secondPrompt.prompt.ProximityPrompt.Enabled = false
+
+	-- Tween properties for handle and knob
+	local handleTween = TweenService:Create(access, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Color = Color3.new(1, 1, 1)})
+	local knobTween = TweenService:Create(status, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Color = Color3.new(1, 1, 1)})
+
+	-- Start tweens
+	handleTween:Play()
+	knobTween:Play()
+
+	-- Update frame text
+	mainFrame.Title.Text = "Welcome back,"
+	mainFrame.user.Text = player.Name
+
+	local descriptions = {
+		"The system has missed you, we're glad to see that you're back with us.",
+		"Heyyy, " .. player.Name .. " welcome backk we'vee missed youuu."
+	}
+	local selectedDesc = descriptions[math.random(1, #descriptions)]
+	mainFrame.Desc.Text = selectedDesc
+
+	-- Tween text properties
+	for _, v in ipairs(mainFrame:GetChildren()) do
+		TweenService:Create(v, TweenInfo.new(.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {TextTransparency = 0}):Play()
+	end
+
+	-- Tween door transparency
+	local doorTweenIn = TweenService:Create(door, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Transparency = 1})
+	doorTweenIn:Play()
+	doorTweenIn.Completed:Wait()
+
+	door.CanCollide = false
+
+	-- Re-enable prompts after animation
+	task.wait(7)
+	prompt.Enabled = true
+	secondPrompt.prompt.ProximityPrompt.Enabled = true
+
+	-- Tween out text properties
+	for _, v in ipairs(mainFrame:GetChildren()) do
+		TweenService:Create(v, TweenInfo.new(.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {TextTransparency = 1}):Play()
+	end
+
+	-- Revert handle and knob colors
+	local handleTweenReset = TweenService:Create(access, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Color = Color3.fromRGB(120, 120, 120)})
+	local knobTweenReset = TweenService:Create(status, TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Color = Color3.fromRGB(120, 120, 120)})
+	handleTweenReset:Play()
+	knobTweenReset:Play()
+
+	-- Tween door transparency
+	local doorTweenOut = TweenService:Create(door, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Transparency = 0})
+	doorTweenOut:Play()
+	doorTweenOut.Completed:Wait()
+	door.CanCollide = true
+
+	-- Reset frame text
+	mainFrame.Title.Text = ""
+	mainFrame.user.Text = ""
+	mainFrame.Desc.Text = ""
+end
+
+function module.keyCardDenied(player, access, status, mainFrame, prompt, secondPrompt)
+	game.ReplicatedStorage[".events"].declineAudio:FireClient(player)
+	-- Disable prompts during animation
+	prompt.Enabled = false
+	secondPrompt.prompt.ProximityPrompt.Enabled = false
+
+	-- Define tween properties
+	local tweenProps = {
+		Color = Color3.new(1, 0, 0)
+	}
+	local tweenInfo = TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+
+	-- Turn parts red
+	local accessTween = TweenService:Create(access, tweenInfo, tweenProps)
+	local statusTween = TweenService:Create(status, tweenInfo, tweenProps)
+
+	accessTween:Play()
+	statusTween:Play()
+
+	-- Update main frame texts
+	mainFrame.Title.Text = "404: Access Denied"
+	mainFrame.user.Text = player.Name .. " has been rejected access to this room."
+	mainFrame.Desc.Text = "Your keycard level is too low for this door, try using a higher level keycard if you have one in your inventory."
+
+	-- Tween text properties
+	for _, v in ipairs(mainFrame:GetChildren()) do
+		TweenService:Create(v, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {TextTransparency = 0}):Play()
+	end
+
+	-- Wait for a moment
+	task.wait(2)
+
+	-- Revert parts to normal color
+	local resetTweenProps = {
+		Color = Color3.fromRGB(120, 120, 120)
+	}
+	local resetTween = TweenService:Create(access, tweenInfo, resetTweenProps)
+	resetTween:Play()
+	TweenService:Create(status, tweenInfo, resetTweenProps):Play()
+
+	-- Tween out text properties
+	for _, v in ipairs(mainFrame:GetChildren()) do
+		TweenService:Create(v, TweenInfo.new(0.5, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {TextTransparency = 1}):Play()
+	end
+
+	-- Reset main frame texts
+	mainFrame.Title.Text = ""
+	mainFrame.user.Text = ""
+	mainFrame.Desc.Text = ""
+
+	-- Re-enable prompts after animation
+	task.wait(1)
+	prompt.Enabled = true
+	secondPrompt.prompt.ProximityPrompt.Enabled = true
+end
+
+return module
+
+--Server Script
+local module = require(game.ReplicatedStorage[".modules"].keycardsModule)
+local access = script.Parent.Parent.Parent:FindFirstChild("access")
+local status = script.Parent.Parent.Parent:FindFirstChild("status")
+local mainFrame = script.Parent.Parent.Parent:FindFirstChild("Frame").mainFrame.SurfaceGui.Frame
+local prompt = script.Parent
+local secondPrompt = script.Parent.Parent.Parent.Parent:FindFirstChild("secondPrompt")
+
+script.Parent.Triggered:Connect(function(player)
+	
+	--Check if player has Keycard Equipped
+	if player.Character:FindFirstChild("Level 1: Keycard") or player.Character:FindFirstChild("Level 2: Keycard") or player.Character:FindFirstChild("Level 3: Keycard") then
+		--Activate Module
+
+		local door = script.Parent.Parent.Parent.Parent:FindFirstChild("Door")
+		module.keyCardActivation(player,access,status,mainFrame,prompt,door,secondPrompt)
+		
+	else
+		module.keyCardDenied(player,access,status,mainFrame,prompt,secondPrompt)
+	end
+end)
